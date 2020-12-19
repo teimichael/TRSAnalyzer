@@ -1,0 +1,18 @@
+(VAR x y m n)
+(RULES
+append(nil, y)            -> y
+append(cons(n, x), y)     -> cons(n, append(x, y))
+leq(0, y)                 -> tt
+leq(s(x), 0)              -> ff
+leq(s(x), s(y))           -> leq(x, y)
+low(n, nil)               -> nil
+low(n, cons(m, x))        -> ifLow(leq(m, n), n, cons(m, x))
+ifLow(tt,  n, cons(m, x)) -> cons(m, low(n, x))
+ifLow(ff,  n, cons(m, x)) -> low(n, x)
+high(n, nil)              -> nil
+high(n, cons(m, x))       -> ifHigh(leq(m, n), n, cons(m, x))
+ifHigh(tt, n, cons(m, x)) -> high(n, x)
+ifHigh(ff, n, cons(m, x)) -> cons(m, high(n, x))
+qsort(nil)                -> nil
+qsort(cons(n, x))         -> append(qsort(low(n, x)), cons(n, qsort(high(n, x))))
+)
