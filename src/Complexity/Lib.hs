@@ -2,7 +2,8 @@ module Complexity.Lib
     ( linearInterpretation
     ) where
 
-import Data.List ( nub )
+import Data.List ( elemIndex, nub )
+import Data.Maybe (fromJust)
 import Core.SMT ( Expr(..), Formula (..), Command (..) )
 import Core.TRS ( Rule, TRS, Term(..) )
 
@@ -16,7 +17,7 @@ linearInterpretation trs = declareConCoeVars trs ++ [assertFormulae trs] ++ chec
 
 -- Declare commands
 declareConCoeVars :: TRS -> [Command]
-declareConCoeVars trs = map Declare (trsConVars trs)
+declareConCoeVars trs = map Declare (allConCoeVars trs)
 
 
 -- Assert command
@@ -26,7 +27,7 @@ assertFormulae trs = Assert $ And $ nub $ concat [ ruleFormulae r | r <- trs]
 
 -- Check commands
 checkCommand :: TRS -> [Command]
-checkCommand trs = [Check, GetVal $ trsConVars trs]
+checkCommand trs = [Check, GetVal $ allConCoeVars trs]
 
 {-
     Formulae
@@ -49,18 +50,23 @@ conFormula (t1, t2) = Gt (constant t1) (constant t2)
     Variables
 -}
 
--- Const variables in a term. E.g. a_0 of (a_0 + x_1)
-termConVars :: Term -> [Expr]
-termConVars (V _) = []
-termConVars (F s as) = Var (s ++ "_0") : concat [termConVars a | a <- as]
+-- Const variables. E.g. a_0 of (a_0 + a_1 * x_1)
+conVars :: Term -> [Expr]
+conVars (V _) = []
+conVars (F s as) = Var (s ++ "_0") : concat [conVars a | a <- as]
+
+-- Constant and Coefficient variables. E.g. a_0, a_1 of (a_0 + a_1 * x_1)
+conCoeVars :: Term -> [Expr]
+conCoeVars (V _) = []
+conCoeVars (F s as) = [Var (s ++ "_" ++ show i) | i <- [0..length as]] ++ concat [conCoeVars a | a <- as]
 
 -- Const variables in a rule
 ruleConVars :: Rule -> [Expr]
-ruleConVars (t1, t2) = nub (termConVars t1 ++ termConVars t2)
+ruleConVars (t1, t2) = nub (conVars t1 ++ conVars t2)
 
--- Constant variables in a TRS
-trsConVars :: TRS -> [Expr]
-trsConVars trs = nub $ concat [ termConVars t1 ++ termConVars t2 | (t1, t2) <- trs]
+-- All Constant and Coefficient variables in a TRS
+allConCoeVars :: TRS -> [Expr]
+allConCoeVars trs = nub $ concat [ conCoeVars t1 ++ conCoeVars t2 | (t1, t2) <- trs]
 
 
 {-
@@ -72,7 +78,8 @@ constant :: Term -> Expr
 constant (V _) = Val 0
 constant (F s []) = Var (s ++ "_0")
 constant (F s [V _]) = Var (s ++ "_0")
-constant (F s as) = simplify $ Plus (Var (s ++ "_0") : [constant a | a <- as])
+constant (F s as) = simplify $ Plus (Var (s ++ "_0") : [Mul [Var (s ++ "_" ++ show (index a)), constant a] | a <- as])
+    where index a = fromJust (a `elemIndex` as) + 1
 
 
 -- Simplify expressions

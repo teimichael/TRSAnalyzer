@@ -31,7 +31,6 @@ library
       Complexity.Main
       Core.SMT
       Core.TRS
-      Lib
       Parser
       Termination.Lib
       Termination.Main
